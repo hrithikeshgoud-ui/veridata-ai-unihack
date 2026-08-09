@@ -70,7 +70,7 @@ if uploaded_file and api_key:
                 """
                 
                 try:
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    model = genai.GenerativeModel('gemini-2.5-flash')
                     gen_response = model.generate_content(gen_prompt)
                     gen_text = gen_response.text.strip().replace("```json", "").replace("```", "")
                     parsed_specs = json.loads(gen_text)
