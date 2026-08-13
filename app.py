@@ -3,25 +3,29 @@ import pypdf
 import json
 import google.generativeai as genai
 
-# Streamlit Page Setup
+# Streamlit Page Setup - Collapse Sidebar & Full Width Layout
 st.set_page_config(
     page_title="VeriData AI — Product Intelligence Auditor",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Sidebar Configuration
-with st.sidebar:
-    st.title("⚡ VeriData AI")
-    st.subheader("System Status")
-    st.success("API Key: Active (Secured in Background)")
-    st.info("Model: Auto-syncing with latest Gemini Flash release")
-    st.markdown("---")
-    st.markdown("### About VeriData AI")
-    st.write("Dual-agent framework for e-commerce catalog enrichment and anti-hallucination verification.")
+# Custom CSS to hide the sidebar toggle button completely
+st.markdown(
+    """
+    <style>
+        [data-testid="collapsedControl"] {display: none;}
+        section[data-testid="stSidebar"] {display: none;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 st.title("⚡ VeriData AI: E-Commerce Product Intelligence")
 st.subheader("Transform Unstructured Technical Datasheets into Verified Catalog Specs")
+st.caption("Powered by **SWAG HACKERS** • Dual-agent framework for catalog enrichment & anti-hallucination verification")
+st.markdown("---")
 
 # Automatically retrieve API Key from Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY")
@@ -37,17 +41,14 @@ genai.configure(api_key=api_key)
 def get_latest_flash_model():
     try:
         models = genai.list_models()
-        # Search for available models supporting content generation with 'flash' in name
         flash_models = [
             m.name for m in models 
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name.lower()
         ]
         if flash_models:
-            # Pick the latest listed flash model
             return genai.GenerativeModel(flash_models[0])
     except Exception:
         pass
-    # Fallback default
     return genai.GenerativeModel('gemini-flash')
 
 model = get_latest_flash_model()
