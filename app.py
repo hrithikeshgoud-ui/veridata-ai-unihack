@@ -36,20 +36,29 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Dynamic Function: Always select the latest Flash model available
+# Dynamic Function: Dynamically fetch and pick the latest active Flash model available to your API key
 @st.cache_resource
 def get_latest_flash_model():
     try:
-        models = genai.list_models()
-        flash_models = [
-            m.name for m in models 
+        available_models = [
+            m.name for m in genai.list_models() 
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name.lower()
         ]
-        if flash_models:
-            return genai.GenerativeModel(flash_models[0])
-    except Exception:
+        if available_models:
+            # Picks the newest/latest flash model returned by Google API
+            latest_model_name = available_models[-1]
+            return genai.GenerativeModel(latest_model_name)
+    except Exception as e:
         pass
-    return genai.GenerativeModel('gemini-flash')
+    
+    # Fallback to standard active flash models if list_models fails
+    for fallback in ['models/gemini-1.5-flash', 'gemini-1.5-flash', 'models/gemini-1.0-flash']:
+        try:
+            return genai.GenerativeModel(fallback)
+        except Exception:
+            continue
+            
+    return genai.GenerativeModel('gemini-1.5-flash')
 
 model = get_latest_flash_model()
 
