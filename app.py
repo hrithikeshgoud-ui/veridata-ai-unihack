@@ -10,17 +10,47 @@ st.set_page_config(
     layout="wide"
 )
 
-# Sidebar - API Key Configuration
+# Sidebar Configuration
 with st.sidebar:
-    st.title("⚙️ Configuration")
-    api_key = st.text_input("Enter Gemini API Key", type="password")
-    st.info("Obtain a free API key from Google AI Studio.")
+    st.title("⚡ VeriData AI")
+    st.subheader("System Status")
+    st.success("API Key: Active (Secured in Background)")
+    st.info("Model: Auto-syncing with latest Gemini Flash release")
     st.markdown("---")
     st.markdown("### About VeriData AI")
     st.write("Dual-agent framework for e-commerce catalog enrichment and anti-hallucination verification.")
 
 st.title("⚡ VeriData AI: E-Commerce Product Intelligence")
 st.subheader("Transform Unstructured Technical Datasheets into Verified Catalog Specs")
+
+# Automatically retrieve API Key from Streamlit Secrets
+api_key = st.secrets.get("GEMINI_API_KEY")
+
+if not api_key:
+    st.error("⚠️ Secrets Error: 'GEMINI_API_KEY' is missing in Streamlit Secrets setup. Please add it to Secrets Manager.")
+    st.stop()
+
+genai.configure(api_key=api_key)
+
+# Dynamic Function: Always select the latest Flash model available
+@st.cache_resource
+def get_latest_flash_model():
+    try:
+        models = genai.list_models()
+        # Search for available models supporting content generation with 'flash' in name
+        flash_models = [
+            m.name for m in models 
+            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name.lower()
+        ]
+        if flash_models:
+            # Pick the latest listed flash model
+            return genai.GenerativeModel(flash_models[0])
+    except Exception:
+        pass
+    # Fallback default
+    return genai.GenerativeModel('gemini-flash')
+
+model = get_latest_flash_model()
 
 # Helper function to extract text from PDF
 def extract_text_from_pdf(uploaded_file):
@@ -33,9 +63,7 @@ def extract_text_from_pdf(uploaded_file):
 # Main Ingestion Interface
 uploaded_file = st.file_uploader("Upload Product Datasheet (PDF)", type=["pdf"])
 
-if uploaded_file and api_key:
-    genai.configure(api_key=api_key)
-    
+if uploaded_file:
     with st.spinner("Extracting text from PDF..."):
         raw_text = extract_text_from_pdf(uploaded_file)
     
@@ -70,7 +98,6 @@ if uploaded_file and api_key:
                 """
                 
                 try:
-                    model = genai.GenerativeModel('gemini-3.6-flash')
                     gen_response = model.generate_content(gen_prompt)
                     gen_text = gen_response.text.strip().replace("```json", "").replace("```", "")
                     parsed_specs = json.loads(gen_text)
@@ -117,6 +144,3 @@ if uploaded_file and api_key:
                         st.json(audit_results)
                     except Exception as e:
                         st.error(f"Audit error: {e}")
-
-elif not api_key:
-    st.info("👈 Enter your Gemini API Key in the sidebar to start processing.")
