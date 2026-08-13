@@ -3,7 +3,7 @@ import pypdf
 import json
 import google.generativeai as genai
 
-# Streamlit Page Setup - Collapse Sidebar & Full Width Layout
+# Streamlit Page Setup - Full Width & Hidden Sidebar
 st.set_page_config(
     page_title="VeriData AI — Product Intelligence Auditor",
     page_icon="⚡",
@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS to hide the sidebar toggle button completely
+# Hide Sidebar completely via CSS
 st.markdown(
     """
     <style>
@@ -27,7 +27,7 @@ st.subheader("Transform Unstructured Technical Datasheets into Verified Catalog 
 st.caption("Powered by **SWAG HACKERS** • Dual-agent framework for catalog enrichment & anti-hallucination verification")
 st.markdown("---")
 
-# Automatically retrieve API Key from Streamlit Secrets
+# Retrieve API Key securely from Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY")
 
 if not api_key:
@@ -36,31 +36,29 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Dynamic Function: Dynamically fetch and pick the latest active Flash model available to your API key
+# DYNAMIC MODEL SELECTOR: Automatically resolves to the newest active Flash model (e.g. 3.6-flash)
 @st.cache_resource
-def get_latest_flash_model():
+def get_latest_gemini_flash_model():
     try:
-        available_models = [
-            m.name for m in genai.list_models() 
+        # Fetch all available models from Google AI Studio for this API key
+        all_models = genai.list_models()
+        
+        # Filter for active models supporting content generation with 'flash' in their name
+        flash_models = [
+            m.name.replace("models/", "") for m in all_models 
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name.lower()
         ]
-        if available_models:
-            # Picks the newest/latest flash model returned by Google API
-            latest_model_name = available_models[-1]
-            return genai.GenerativeModel(latest_model_name)
-    except Exception as e:
+        
+        if flash_models:
+            # Sort models to guarantee the highest version string (e.g., 3.6 > 2.5 > 1.5) is picked
+            flash_models.sort(reverse=True)
+            selected_model = flash_models[0]
+            return genai.GenerativeModel(selected_model)
+    except Exception:
         pass
-    
-    # Fallback to standard active flash models if list_models fails
-    for fallback in ['models/gemini-1.5-flash', 'gemini-1.5-flash', 'models/gemini-1.0-flash']:
-        try:
-            return genai.GenerativeModel(fallback)
-        except Exception:
-            continue
-            
-    return genai.GenerativeModel('gemini-1.5-flash')
 
-model = get_latest_flash_model()
+    # Fallback to recommended dynamic alias if listing fails
+    return genai.GenerativeModel("gemini-flash")
 
 # Helper function to extract text from PDF
 def extract_text_from_pdf(uploaded_file):
@@ -83,6 +81,7 @@ if uploaded_file:
         st.text(raw_text[:2000] + ("..." if len(raw_text) > 2000 else ""))
 
     if st.button("🚀 Process & Audit Product Specs"):
+        model = get_latest_gemini_flash_model()
         col1, col2 = st.columns(2)
 
         # AGENT 1: Data Enrichment Generator
