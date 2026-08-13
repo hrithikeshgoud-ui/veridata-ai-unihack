@@ -36,29 +36,34 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# DYNAMIC MODEL SELECTOR: Automatically resolves to the newest active Flash model (e.g. 3.6-flash)
+# SAFE DYNAMIC MODEL SELECTOR: Filters only standard, free-tier supported Flash models
 @st.cache_resource
 def get_latest_gemini_flash_model():
     try:
-        # Fetch all available models from Google AI Studio for this API key
         all_models = genai.list_models()
         
-        # Filter for active models supporting content generation with 'flash' in their name
-        flash_models = [
+        # Filter ONLY standard flash models (exclude zero-quota models like omni, experimental, preview)
+        valid_flash_models = [
             m.name.replace("models/", "") for m in all_models 
-            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name.lower()
+            if 'generateContent' in m.supported_generation_methods 
+            and 'flash' in m.name.lower()
+            and not any(x in m.name.lower() for x in ['omni', 'experimental', 'exp', 'preview'])
         ]
         
-        if flash_models:
-            # Sort models to guarantee the highest version string (e.g., 3.6 > 2.5 > 1.5) is picked
-            flash_models.sort(reverse=True)
-            selected_model = flash_models[0]
-            return genai.GenerativeModel(selected_model)
+        if valid_flash_models:
+            valid_flash_models.sort(reverse=True)
+            return genai.GenerativeModel(valid_flash_models[0])
     except Exception:
         pass
 
-    # Fallback to recommended dynamic alias if listing fails
-    return genai.GenerativeModel("gemini-flash")
+    # Reliable fallback to standard free-tier Flash models
+    for fallback in ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash"]:
+        try:
+            return genai.GenerativeModel(fallback)
+        except Exception:
+            continue
+            
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 # Helper function to extract text from PDF
 def extract_text_from_pdf(uploaded_file):
