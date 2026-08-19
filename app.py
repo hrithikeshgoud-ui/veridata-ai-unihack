@@ -274,4 +274,3 @@ if uploaded_file:
                             st.json(audit_results)
                         except Exception as e:
                             st.error(f"Audit error: {e}")
-                            )
